@@ -1,6 +1,6 @@
 interface:
   display_name: "OSS Thanks"
-  short_description: "Review or star open-source projects used by agents."
-  default_prompt: "Use $oss-thanks to record GitHub repositories referenced during this task and review or star them according to the configured consent mode."
+  short_description: "Auto-star open-source projects used by agents."
+  default_prompt: "Use $oss-thanks to ask how I want OSS Thanks to run, remember the choice, and star GitHub repositories referenced during this task."
 policy:
   allow_implicit_invocation: true

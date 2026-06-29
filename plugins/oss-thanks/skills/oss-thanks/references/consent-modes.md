@@ -1,13 +1,22 @@
 # Consent Modes
 
-`review` is the default mode. Repositories are recorded locally, and the user decides whether to star them after the task.
+OSS Thanks supports two saved preferences.
 
-`auto-star` is an explicit opt-in mode. The tool may call GitHub as soon as a repository is detected, but only when the user has enabled consent with:
+`auto-star` is the main path. When the agent detects a GitHub repository, the tool records it and immediately tries to star it from the user's GitHub account.
+
+`review` records repositories first and waits until the end of the task for user approval.
+
+Ask the user once, then save the preference:
 
 ```bash
-python3 scripts/oss_thanks.py init --mode auto-star --yes
+python3 scripts/oss_thanks.py setup
 ```
 
-For one-off commands, `--mode auto-star --yes` enables auto-star only for that invocation.
+For non-interactive setup after the user chooses:
+
+```bash
+python3 scripts/oss_thanks.py setup --mode auto-star
+python3 scripts/oss_thanks.py setup --mode review
+```
 
 Use `OSS_THANKS_AUTO_STAR=1` only in environments where the user has already authorized automatic stars.

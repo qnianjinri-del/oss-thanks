@@ -117,7 +117,11 @@ def default_config() -> dict[str, Any]:
 
 def load_config(home: Path) -> dict[str, Any]:
     config = default_config()
-    config.update(load_json(home / CONFIG_NAME, {}))
+    config_path = home / CONFIG_NAME
+    saved_config = load_json(config_path, {})
+    config.update(saved_config)
+    if config_path.exists() and "configured" not in saved_config:
+        config["configured"] = True
 
     env_mode = os.environ.get("OSS_THANKS_MODE")
     if env_mode:
@@ -130,6 +134,59 @@ def load_config(home: Path) -> dict[str, Any]:
     if config.get("mode") not in VALID_MODES:
         raise ValueError(f"Invalid mode {config.get('mode')!r}. Use review or auto-star.")
     return config
+
+
+def config_exists(home: Path) -> bool:
+    return (home / CONFIG_NAME).exists()
+
+
+def save_config(
+    home: Path,
+    *,
+    mode: str,
+    dry_run: bool = False,
+    star_method: str = "auto",
+) -> dict[str, Any]:
+    if mode not in VALID_MODES:
+        raise ValueError(f"Invalid mode {mode!r}. Use review or auto-star.")
+    config = default_config()
+    config.update(
+        {
+            "configured": True,
+            "configured_at": utc_now(),
+            "mode": mode,
+            "auto_star_consent": mode == MODE_AUTO,
+            "dry_run": dry_run,
+            "star_method": star_method,
+        }
+    )
+    save_json(home / CONFIG_NAME, config)
+    save_json(home / STATE_NAME, load_state(home))
+    return config
+
+
+def prompt_for_mode(default: str = MODE_AUTO) -> str:
+    print("")
+    print("OSS Thanks 要怎么运行？")
+    print("1) 自动点 star：AI 参考或下载 GitHub 项目时，直接用你的 GitHub 账号点 star。")
+    print("2) 先问我：先记录下来，任务结束时再让我决定哪些要 star。")
+    print("")
+    answer = input(f"请选择 1 或 2 [{1 if default == MODE_AUTO else 2}]: ").strip().lower()
+    if not answer:
+        return default
+    if answer in {"1", "auto", "auto-star", "star", "自动", "自动点"}:
+        return MODE_AUTO
+    if answer in {"2", "review", "ask", "manual", "确认", "先问"}:
+        return MODE_REVIEW
+    print("没看懂这个选择，先按“先问我”保存。")
+    return MODE_REVIEW
+
+
+def ensure_config_for_interactive_record(home: Path, args: argparse.Namespace) -> dict[str, Any]:
+    if config_exists(home) or not sys.stdin.isatty() or getattr(args, "mode", None):
+        return load_config(home)
+    mode = prompt_for_mode()
+    return save_config(home, mode=mode, dry_run=getattr(args, "dry_run", False))
 
 
 def default_state() -> dict[str, Any]:
@@ -348,26 +405,6 @@ def update_star_status(
     return exit_code
 
 
-def write_summary(state: dict[str, Any], output: Path) -> None:
-    lines = [
-        "# Open Source Thanks",
-        "",
-        "Repositories observed while an AI coding assistant worked in this project.",
-        "",
-        "| Repository | Status | First seen | Uses |",
-        "| --- | --- | --- | ---: |",
-    ]
-    for entry in all_repos(state):
-        lines.append(
-            f"| [{entry['repo']}](https://github.com/{entry['repo']}) "
-            f"| {entry.get('status', 'pending')} "
-            f"| {entry.get('first_seen', '')} "
-            f"| {len(entry.get('sources', []))} |"
-        )
-    lines.append("")
-    output.write_text("\n".join(lines), encoding="utf-8")
-
-
 def command_init(args: argparse.Namespace) -> int:
     home = get_home(args.home)
     mode = args.mode
@@ -378,24 +415,45 @@ def command_init(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
-    config = default_config()
-    config.update(
-        {
-            "mode": mode,
-            "auto_star_consent": mode == MODE_AUTO,
-            "dry_run": args.dry_run,
-            "star_method": args.star_method,
-        }
-    )
-    save_json(home / CONFIG_NAME, config)
-    save_json(home / STATE_NAME, load_state(home))
+    save_config(home, mode=mode, dry_run=args.dry_run, star_method=args.star_method)
     print(f"[oss-thanks] initialized {home} in {mode} mode")
+    return 0
+
+
+def command_setup(args: argparse.Namespace) -> int:
+    home = get_home(args.home)
+    if args.mode:
+        mode = args.mode
+    else:
+        if not sys.stdin.isatty():
+            print("Use --mode auto-star or --mode review in non-interactive setup.", file=sys.stderr)
+            return 2
+        mode = prompt_for_mode(default=MODE_AUTO)
+    save_config(home, mode=mode, dry_run=args.dry_run, star_method=args.star_method)
+    if mode == MODE_AUTO:
+        print("[oss-thanks] saved: auto-star mode. Detected GitHub repositories will be starred automatically.")
+    else:
+        print("[oss-thanks] saved: review mode. Detected GitHub repositories will wait for your approval.")
+    return 0
+
+
+def command_status(args: argparse.Namespace) -> int:
+    home = get_home(args.home)
+    config = load_config(home)
+    state = load_state(home)
+    pending = pending_repos(state)
+    configured = "yes" if config_exists(home) and config.get("configured", False) else "no"
+    print(f"Home: {home}")
+    print(f"Configured: {configured}")
+    print(f"Mode: {config['mode']}")
+    print(f"Auto-star consent: {'on' if config.get('auto_star_consent') else 'off'}")
+    print(f"Pending repos: {len(pending)}")
     return 0
 
 
 def command_record(args: argparse.Namespace) -> int:
     home = get_home(args.home)
-    config = load_config(home)
+    config = ensure_config_for_interactive_record(home, args)
     mode = args.mode or config["mode"]
     text = read_input_text(args)
     repos = extract_repos(text)
@@ -414,7 +472,7 @@ def command_record(args: argparse.Namespace) -> int:
             return update_star_status(home, repos, config, dry_run=args.dry_run)
         print(
             "[oss-thanks] auto-star mode was requested, but consent is not enabled. "
-            "Run `oss_thanks.py init --mode auto-star --yes` or set OSS_THANKS_AUTO_STAR=1.",
+            "Run `oss_thanks.py setup --mode auto-star` or set OSS_THANKS_AUTO_STAR=1.",
             file=sys.stderr,
         )
     return 0
@@ -443,7 +501,10 @@ def command_review(args: argparse.Namespace) -> int:
             print(f"- [{entry['repo']}](https://github.com/{entry['repo']})")
     else:
         if not pending:
-            print("[oss-thanks] no pending repositories")
+            if config.get("mode") == MODE_AUTO and config.get("auto_star_consent"):
+                print("[oss-thanks] no pending repositories; auto-star mode is on")
+            else:
+                print("[oss-thanks] no pending repositories")
         else:
             print("Pending repositories:")
             for entry in pending:
@@ -500,15 +561,6 @@ def command_ignore(args: argparse.Namespace) -> int:
     return 0
 
 
-def command_summary(args: argparse.Namespace) -> int:
-    home = get_home(args.home)
-    state = load_state(home)
-    output = Path(args.output)
-    write_summary(state, output)
-    print(f"[oss-thanks] wrote {output}")
-    return 0
-
-
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--home", help="State directory. Defaults to ./ .oss-thanks or OSS_THANKS_HOME.")
@@ -522,6 +574,15 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--dry-run", action="store_true", help="Record only; do not call GitHub.")
     init.add_argument("--yes", action="store_true", help="Confirm auto-star consent when mode is auto-star.")
     init.set_defaults(func=command_init)
+
+    setup = subparsers.add_parser("setup", parents=[with_home], help="Ask how OSS Thanks should run and remember the choice.")
+    setup.add_argument("--mode", choices=sorted(VALID_MODES), help="Save a mode without prompting.")
+    setup.add_argument("--star-method", choices=["auto", "gh", "api"], default="auto")
+    setup.add_argument("--dry-run", action="store_true", help="Record only; do not call GitHub.")
+    setup.set_defaults(func=command_setup)
+
+    status = subparsers.add_parser("status", parents=[with_home], help="Show saved OSS Thanks mode and queue size.")
+    status.set_defaults(func=command_status)
 
     record = subparsers.add_parser("record", parents=[with_home], help="Record repositories found in text, files, or stdin.")
     record.add_argument("--text", action="append", help="Text to scan for GitHub repositories.")
@@ -558,10 +619,6 @@ def build_parser() -> argparse.ArgumentParser:
     ignore = subparsers.add_parser("ignore", parents=[with_home], help="Mark repositories as ignored.")
     ignore.add_argument("repos", nargs="+", help="Repositories in owner/name form.")
     ignore.set_defaults(func=command_ignore)
-
-    summary = subparsers.add_parser("summary", parents=[with_home], help="Write a THANKS.md style summary.")
-    summary.add_argument("--output", default="THANKS.md")
-    summary.set_defaults(func=command_summary)
 
     return parser
 

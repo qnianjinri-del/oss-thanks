@@ -38,6 +38,18 @@ class OssThanksTest(unittest.TestCase):
         text = oss_thanks.extract_text_from_hook_payload(payload)
         self.assertEqual(oss_thanks.extract_repos(text), ["pytest-dev/pytest"])
 
+    def test_setup_saves_auto_star_preference(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            home = Path(temp_dir)
+            exit_code = oss_thanks.main(
+                ["setup", "--home", str(home), "--mode", "auto-star", "--dry-run"]
+            )
+            self.assertEqual(exit_code, 0)
+            config = oss_thanks.load_config(home)
+            self.assertEqual(config["mode"], "auto-star")
+            self.assertTrue(config["auto_star_consent"])
+            self.assertTrue(config["configured"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,94 +1,118 @@
 # OSS Thanks
 
-OSS Thanks helps AI coding assistants make open-source usage visible.
+![OSS Thanks hero](assets/oss-thanks-hero.png)
 
-When Codex, Claude Code, or another agent references a GitHub repository, clones a project, or downloads a skill from GitHub, this tool records the repository locally. Users can choose one of two consent modes:
+AI 编程工具越来越常去 GitHub 找项目、看代码、下载开源 skill。OSS Thanks 做一件很小的事：
 
-- `review`: collect repositories during the task, then show the queue for human approval.
-- `auto-star`: star detected repositories immediately from the user's GitHub account after explicit opt-in.
+**当 AI 参考或下载了一个 GitHub 开源项目，就按你的选择给它点一个 star。**
 
-The default is `review`.
+它不写感谢信，不打扰作者，也不生成一堆致谢文案。就是把“AI 用过开源项目”这件事，变成一个简单、可见的 star。
 
-## Install As A Codex Plugin
+## 两种方式
 
-After this repository is on GitHub, add it as a Codex plugin marketplace:
+第一次使用时，OSS Thanks 会直接问你想怎么运行，并记住选择。
+
+| 方式 | 适合谁 | 会发生什么 |
+| --- | --- | --- |
+| 自动点 star | 想尽量省心的人 | AI 看到 GitHub 项目后，自动帮你点 star |
+| 结束前确认 | 想自己看一眼的人 | 先记录下来，任务结束时让你决定哪些要 star |
+
+之后不用每次再说一遍。想改时，再运行一次设置就行。
+
+![OSS Thanks flow](assets/oss-thanks-flow.png)
+
+## 怎么用
+
+### 1. 添加到 Codex
 
 ```bash
 codex plugin marketplace add qnianjinri-del/oss-thanks
 ```
 
-Then open Codex Plugins, install **OSS Thanks**, and start a new thread.
+然后在 Codex 的插件列表里安装 **OSS Thanks**，新开一个 thread。
 
-This repository also includes the plugin source directly at:
+### 2. 第一次它会直接问你
+
+安装后，第一次有任务需要用到 OSS Thanks 时，Codex 会直接问：
 
 ```text
-plugins/oss-thanks
+OSS Thanks 要怎么运行？
+1) 自动点 star
+2) 先问我
 ```
 
-## Quick Start
+选过一次后，会保存在当前项目的 `.oss-thanks/config.json`。
+
+如果你想手动改选择，也可以运行：
 
 ```bash
-python3 scripts/oss_thanks.py init --mode review
-python3 scripts/oss_thanks.py record --text "git clone https://github.com/pallets/flask.git"
+python3 scripts/oss_thanks.py setup
+```
+
+### 3. 让 AI 正常工作
+
+之后你照常让 Codex 或 Claude Code 写代码、找参考项目、下载 skill。OSS Thanks 会从命令、链接和 hook 事件里识别 GitHub 仓库。
+
+如果你选的是自动点 star，它会直接尝试点星。
+
+如果你选的是结束前确认，可以查看当前列表：
+
+```bash
 python3 scripts/oss_thanks.py review
+```
+
+确认全部点星：
+
+```bash
 python3 scripts/oss_thanks.py review --star --yes
 ```
 
-Enable direct auto-star only after the user chooses it:
+## GitHub 登录
 
-```bash
-python3 scripts/oss_thanks.py init --mode auto-star --yes
-```
-
-Authentication uses the GitHub CLI first:
+自动点 star 需要能代表你的 GitHub 账号发起 star 操作。最简单的方式是安装并登录 GitHub CLI：
 
 ```bash
 gh auth login
 ```
 
-If `gh` is unavailable, set `GH_TOKEN` or `GITHUB_TOKEN` with permission to star repositories.
+如果没有 `gh`，也可以设置 `GH_TOKEN` 或 `GITHUB_TOKEN`。
 
-## Codex Skill
+## 它会识别什么
 
-The repo includes a Codex skill at:
+这些都会被记录：
 
 ```text
-.agents/skills/oss-thanks
-plugins/oss-thanks/skills/oss-thanks
+https://github.com/openai/skills
+git clone https://github.com/pallets/flask.git
+git@github.com:psf/requests.git
+gh repo clone pytest-dev/pytest
 ```
 
-The skill tells Codex when to record GitHub repositories and how to respect the chosen consent mode.
+重复出现的项目只会保留一份记录。已经 star、忽略过的项目不会反复处理。
 
-## Codex Hook Adapter
+## 给 Claude Code 或其它工具用
 
-For automatic collection from Codex shell commands, adapt `examples/codex-hooks.json` into your trusted Codex hook configuration.
-
-The hook adapter reads Codex hook JSON from stdin and records repositories found in any string field:
+核心功能是一个普通命令行脚本：
 
 ```bash
-hooks/codex-post-tool-use.sh
+python3 scripts/oss_thanks.py record --text "git clone https://github.com/openai/skills.git"
 ```
 
-Keep hook installation explicit. Hooks can run commands automatically, so users should review and trust the exact hook before enabling it.
+所以不只 Codex 能用。任何 AI 编程工具只要能在任务过程中调用这个脚本，都可以接入。
 
-The packaged plugin also includes hook definitions at:
+## 抖音介绍图
 
-```text
-plugins/oss-thanks/hooks/hooks.json
-```
+项目里放了一张竖版介绍图，可以直接拿去发短视频封面或动态：
 
-## Files
+![OSS Thanks Douyin poster](assets/douyin-oss-thanks.png)
 
-- `scripts/oss_thanks.py`: core CLI and GitHub star implementation.
-- `.agents/skills/oss-thanks/SKILL.md`: Codex skill.
-- `plugins/oss-thanks`: installable Codex plugin package.
-- `.agents/plugins/marketplace.json`: repo marketplace entry.
-- `examples/codex-hooks.json`: example Codex hook config.
-- `hooks/codex-post-tool-use.sh`: hook adapter.
+## 文件位置
 
-## Design Principles
+- `plugins/oss-thanks`：Codex 插件包
+- `.agents/plugins/marketplace.json`：Codex marketplace 入口
+- `scripts/oss_thanks.py`：核心脚本
+- `assets/`：README 图片和介绍图
 
-- Make open-source usage visible.
-- Prefer review and human approval by default.
-- Allow auto-star only as a clear user choice.
-- Keep a local attribution log even when GitHub authentication is unavailable.
+## 说明
+
+GitHub star 是用户账号的公开行为。OSS Thanks 会在第一次使用时让你选择运行方式，并把选择保存下来。自动点 star 适合明确愿意这样做的用户；如果你希望每次都看一眼，可以选择结束前确认。
