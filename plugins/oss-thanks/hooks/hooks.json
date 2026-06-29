@@ -1,0 +1,27 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./scripts/oss-thanks-hook.sh",
+            "statusMessage": "Recording open-source references"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./scripts/oss-thanks-review.sh",
+            "statusMessage": "Preparing open-source thanks queue"
+          }
+        ]
+      }
+    ]
+  }
+}

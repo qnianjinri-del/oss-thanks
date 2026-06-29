@@ -1,0 +1,20 @@
+{
+  "name": "oss-thanks",
+  "interface": {
+    "displayName": "OSS Thanks"
+  },
+  "plugins": [
+    {
+      "name": "oss-thanks",
+      "source": {
+        "source": "local",
+        "path": "./plugins/oss-thanks"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_USE"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

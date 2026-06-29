@@ -1,0 +1,5 @@
+__pycache__/
+*.py[cod]
+.oss-thanks/
+THANKS.md
+.DS_Store

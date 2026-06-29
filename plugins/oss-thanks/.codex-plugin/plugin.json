@@ -1,0 +1,36 @@
+{
+  "name": "oss-thanks",
+  "version": "0.1.0",
+  "description": "Track GitHub repositories used by AI coding agents and thank maintainers through review or explicit auto-star mode.",
+  "author": {
+    "name": "OSS Thanks Contributors",
+    "url": "https://github.com/qnianjinri-del"
+  },
+  "skills": "./skills/",
+  "license": "MIT",
+  "keywords": [
+    "open-source",
+    "github",
+    "stars",
+    "codex",
+    "skills",
+    "attribution"
+  ],
+  "interface": {
+    "displayName": "OSS Thanks",
+    "shortDescription": "Review or star OSS projects used by agents",
+    "longDescription": "Record GitHub repositories referenced, cloned, or downloaded by AI coding agents. Keep review mode as the default queue for user approval, or enable explicit auto-star mode when the user wants repositories starred immediately from their GitHub account.",
+    "developerName": "OSS Thanks Contributors",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Track open-source repositories used in this task",
+      "Review the OSS thanks queue before finishing",
+      "Enable explicit auto-star mode for this project"
+    ],
+    "brandColor": "#2563EB"
+  }
+}
