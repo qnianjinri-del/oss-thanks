@@ -138,18 +138,16 @@ python3 scripts/oss_thanks.py ignore owner/repo
 
 ## 抖音介绍图
 
-项目里有两张竖版介绍图，可以用于发图文或短视频封面：
+项目里有一张横版介绍图，可以用于发图文或短视频封面：
 
 ![OSS Thanks Douyin poster](assets/douyin-oss-thanks.png)
-
-![OSS Thanks Codex usage example](assets/douyin-oss-thanks-codex.png)
 
 ## 项目结构
 
 - `plugins/oss-thanks`：Codex 插件包
 - `.agents/plugins/marketplace.json`：Codex marketplace 入口
 - `scripts/oss_thanks.py`：核心脚本
-- `assets/`：README 图片和竖版介绍图
+- `assets/`：README 图片和介绍图
 
 ## License
 
