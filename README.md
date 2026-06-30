@@ -34,6 +34,8 @@ OSS Thanks 要怎么运行？
 | 自动点 star | 检测到项目运行中实际用过的 GitHub repo 后，直接用你的 GitHub 账号点 star |
 | 先问我 | 先记录 repo，任务结束前展示列表，让你确认哪些要点 star |
 
+![GitHub star before and after](assets/github-star-before-after.png)
+
 之后想改选择，可以重新运行：
 
 ```bash
