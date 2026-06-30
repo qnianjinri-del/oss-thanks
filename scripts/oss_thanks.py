@@ -35,7 +35,24 @@ GITHUB_SSH_RE = re.compile(
     re.IGNORECASE,
 )
 GH_REPO_COMMAND_RE = re.compile(
-    r"\bgh\s+repo\s+(?:clone|view|fork|star)\s+(?P<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)",
+    r"\bgh\s+repo\s+clone\s+(?P<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)",
+    re.IGNORECASE,
+)
+GIT_CLONE_GITHUB_RE = re.compile(
+    r"\bgit\s+clone\b[^\n]*?(?:https?://)?github\.com[:/](?P<owner>[A-Za-z0-9_.-]+)/(?P<repo>[A-Za-z0-9_.-]+)",
+    re.IGNORECASE,
+)
+GIT_CLONE_SSH_RE = re.compile(
+    r"\bgit\s+clone\b[^\n]*?git@github\.com:(?P<owner>[A-Za-z0-9_.-]+)/(?P<repo>[A-Za-z0-9_.-]+)",
+    re.IGNORECASE,
+)
+USE_CONTEXT_RE = re.compile(
+    r"\b("
+    r"clone|cloned|cloning|download|downloaded|downloading|install|installed|installing|"
+    r"open|opened|opening|reference|referenced|referencing|read|reading|inspect|inspected|"
+    r"browse|browsed|used|using|fetch|fetched|template|plugin|skill|"
+    r"pip|npm|pnpm|yarn|uv|curl|wget"
+    r")\b|克隆|下载|安装|打开|参考|引用|使用|用到",
     re.IGNORECASE,
 )
 
@@ -168,9 +185,11 @@ def save_config(
 def prompt_for_mode(default: str = MODE_AUTO) -> str:
     print("")
     print("OSS Thanks 要怎么运行？")
-    print("1) 自动点 star：AI 参考或下载 GitHub 项目时，直接用你的 GitHub 账号点 star。")
-    print("2) 先问我：先记录下来，任务结束时再让我决定哪些要 star。")
     print("")
+    print("1. 自动点 star")
+    print("2. 先问我")
+    print("")
+    print("选过一次后会记住。")
     answer = input(f"请选择 1 或 2 [{1 if default == MODE_AUTO else 2}]: ").strip().lower()
     if not answer:
         return default
@@ -215,21 +234,35 @@ def normalize_repo(owner: str, repo: str) -> str | None:
     return f"{owner}/{repo}"
 
 
+def line_indicates_repo_use(line: str) -> bool:
+    return bool(USE_CONTEXT_RE.search(line))
+
+
 def extract_repos(text: str) -> list[str]:
     found: set[str] = set()
 
-    for pattern in (GITHUB_URL_RE, GITHUB_SSH_RE):
-        for match in pattern.finditer(text):
-            repo = normalize_repo(match.group("owner"), match.group("repo"))
+    for line in text.splitlines():
+        for pattern in (GIT_CLONE_GITHUB_RE, GIT_CLONE_SSH_RE):
+            for match in pattern.finditer(line):
+                repo = normalize_repo(match.group("owner"), match.group("repo"))
+                if repo:
+                    found.add(repo)
+
+        for match in GH_REPO_COMMAND_RE.finditer(line):
+            full = match.group("repo")
+            owner, repo_name = full.split("/", 1)
+            repo = normalize_repo(owner, repo_name)
             if repo:
                 found.add(repo)
 
-    for match in GH_REPO_COMMAND_RE.finditer(text):
-        full = match.group("repo")
-        owner, repo_name = full.split("/", 1)
-        repo = normalize_repo(owner, repo_name)
-        if repo:
-            found.add(repo)
+        if not line_indicates_repo_use(line):
+            continue
+
+        for pattern in (GITHUB_URL_RE, GITHUB_SSH_RE):
+            for match in pattern.finditer(line):
+                repo = normalize_repo(match.group("owner"), match.group("repo"))
+                if repo:
+                    found.add(repo)
 
     return sorted(found, key=str.lower)
 
@@ -321,7 +354,7 @@ def all_repos(state: dict[str, Any]) -> list[dict[str, Any]]:
 def star_with_gh(repo: str) -> tuple[bool, str]:
     gh = shutil.which("gh")
     if not gh:
-        return False, "GitHub CLI `gh` was not found"
+        return False, "GitHub CLI `gh` was not found. Install gh and run `gh auth login`, or set GH_TOKEN/GITHUB_TOKEN."
     completed = subprocess.run(
         [gh, "repo", "star", repo],
         check=False,
@@ -337,7 +370,7 @@ def star_with_gh(repo: str) -> tuple[bool, str]:
 def star_with_api(repo: str) -> tuple[bool, str]:
     token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
     if not token:
-        return False, "Set GH_TOKEN/GITHUB_TOKEN or install and authenticate GitHub CLI"
+        return False, "GitHub auth is missing. Run `gh auth login` or set GH_TOKEN/GITHUB_TOKEN."
     url = f"https://api.github.com/user/starred/{repo}"
     request = urllib.request.Request(
         url,
@@ -397,7 +430,7 @@ def update_star_status(
             entry["last_error"] = None
             print(f"[oss-thanks] {repo}: {message}")
         else:
-            entry["status"] = "failed"
+            entry["status"] = "pending"
             entry["last_error"] = message
             exit_code = 1
             print(f"[oss-thanks] {repo}: {message}", file=sys.stderr)
@@ -431,9 +464,9 @@ def command_setup(args: argparse.Namespace) -> int:
         mode = prompt_for_mode(default=MODE_AUTO)
     save_config(home, mode=mode, dry_run=args.dry_run, star_method=args.star_method)
     if mode == MODE_AUTO:
-        print("[oss-thanks] saved: auto-star mode. Detected GitHub repositories will be starred automatically.")
+        print("[oss-thanks] saved: auto-star. Repos actually used during the project will be starred automatically.")
     else:
-        print("[oss-thanks] saved: review mode. Detected GitHub repositories will wait for your approval.")
+        print("[oss-thanks] saved: review. Repos actually used during the project will be shown before the task ends.")
     return 0
 
 
@@ -461,7 +494,7 @@ def command_record(args: argparse.Namespace) -> int:
     repos = [repo for repo in repos if repo not in ignored]
 
     if not repos:
-        print("[oss-thanks] no GitHub repositories detected")
+        print("[oss-thanks] no actual GitHub repository use detected")
         return 0
 
     record_repositories(home, repos, source=args.source, reason=args.reason, mode=mode)
@@ -584,11 +617,11 @@ def build_parser() -> argparse.ArgumentParser:
     status = subparsers.add_parser("status", parents=[with_home], help="Show saved OSS Thanks mode and queue size.")
     status.set_defaults(func=command_status)
 
-    record = subparsers.add_parser("record", parents=[with_home], help="Record repositories found in text, files, or stdin.")
+    record = subparsers.add_parser("record", parents=[with_home], help="Record actual GitHub repo use found in text, files, or stdin.")
     record.add_argument("--text", action="append", help="Text to scan for GitHub repositories.")
     record.add_argument("--file", action="append", help="File to scan for GitHub repositories.")
     record.add_argument("--source", default="manual", help="Where this observation came from.")
-    record.add_argument("--reason", default="referenced by agent", help="Why the repository is being recorded.")
+    record.add_argument("--reason", default="used by agent", help="Why the repository is being recorded.")
     record.add_argument("--mode", choices=sorted(VALID_MODES), help="Override configured consent mode.")
     record.add_argument("--dry-run", action="store_true", help="Do not call GitHub even in auto-star mode.")
     record.add_argument("--yes", action="store_true", help="Confirm auto-star for this command.")

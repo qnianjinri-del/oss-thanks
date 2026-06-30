@@ -10,13 +10,25 @@ class OssThanksTest(unittest.TestCase):
         text = """
         git clone https://github.com/pallets/flask.git.
         gh repo clone psf/requests.
-        git@github.com:openai/skills.git
+        installed skill from git@github.com:openai/skills.git
         https://github.com/features/actions
         """
         self.assertEqual(
             oss_thanks.extract_repos(text),
             ["openai/skills", "pallets/flask", "psf/requests"],
         )
+
+    def test_plain_search_result_link_is_not_actual_use(self):
+        text = """
+        Search results:
+        https://github.com/pallets/flask
+        Also mentioned https://github.com/psf/requests in a web page.
+        """
+        self.assertEqual(oss_thanks.extract_repos(text), [])
+
+    def test_explicit_opened_and_referenced_repo_counts_as_use(self):
+        text = "Opened https://github.com/openai/skills and referenced its README."
+        self.assertEqual(oss_thanks.extract_repos(text), ["openai/skills"])
 
     def test_record_review_state(self):
         with tempfile.TemporaryDirectory() as temp_dir:

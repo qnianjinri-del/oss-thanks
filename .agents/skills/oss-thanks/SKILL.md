@@ -1,11 +1,11 @@
 ---
 name: oss-thanks
-description: Track GitHub open-source repositories and agent skills that Codex references, clones, downloads, or installs during coding tasks, then auto-star them or queue them for final review based on the user's saved preference. Use when working with GitHub projects, open-source dependencies, external skills, plugin downloads, repository research, or automatic GitHub star workflows.
+description: Track GitHub repositories that Codex actually uses during coding tasks, then auto-star them or queue them for final review based on the user's saved preference. Use when cloning GitHub repos, installing GitHub skills/plugins/templates, downloading from GitHub, or explicitly opening and referencing a GitHub repository during implementation.
 ---
 
 # OSS Thanks
 
-Use this skill to star open-source GitHub repositories an agent uses.
+Use this skill when an AI coding task actually uses a GitHub repository and should record it for auto-star or final review.
 
 Resolve the CLI before running commands:
 
@@ -13,40 +13,62 @@ Resolve the CLI before running commands:
 - If this skill is loaded from `.agents/skills/oss-thanks`, use `scripts/oss_thanks.py` from the repository root.
 - If unsure, locate it with `find .. -path '*/scripts/oss_thanks.py' -print`.
 
-## Workflow
+## First Use
 
-1. Before the first real use in a project, run `python3 <path-to>/scripts/oss_thanks.py status`.
-2. If it says `Configured: no`, ask the user directly:
-   "OSS Thanks 要怎么运行？1. 自动点 star；2. 任务结束前让我确认。选过一次后我会记住。"
-3. Save the answer with `setup --mode auto-star` or `setup --mode review`.
-4. Detect GitHub repositories in commands, logs, README links, skill install URLs, package setup notes, or browser/search notes.
-5. Record every detected repository with `record`.
-6. If mode is `auto-star`, the script stars detected repositories automatically. If mode is `review`, run `review` near the end and ask whether to star the pending list.
-
-## Commands
-
-Ask and remember the user's preference:
+Before the first real use in a project, run:
 
 ```bash
-python3 <path-to>/scripts/oss_thanks.py setup
+python3 <path-to>/scripts/oss_thanks.py status
 ```
 
-Save auto-star mode directly after the user chooses it:
+If it says `Configured: no`, ask the user exactly:
+
+```text
+OSS Thanks 要怎么运行？
+
+1. 自动点 star
+2. 先问我
+```
+
+Save the answer once:
 
 ```bash
 python3 <path-to>/scripts/oss_thanks.py setup --mode auto-star
+python3 <path-to>/scripts/oss_thanks.py setup --mode review
+```
+
+Do not ask again after the choice is saved.
+
+## What Counts
+
+Record only actual GitHub repo use:
+
+- `git clone` of a GitHub repo
+- `gh repo clone owner/repo`
+- GitHub HTTPS or SSH repo links used for clone, download, or install
+- Installing a GitHub skill, plugin, or template
+- Explicitly opening and referencing a GitHub repo during implementation
+
+Do not record a repo just because it appears in search results, a web page, or incidental text.
+
+## Workflow
+
+1. When actual GitHub repo use happens, call `record` with the command or note that proves use.
+2. If mode is `auto-star`, the script attempts to star immediately.
+3. If mode is `review`, run `review` near the end of the task and show the pending list before finishing.
+
+## Commands
+
+Record observed repo use:
+
+```bash
+python3 <path-to>/scripts/oss_thanks.py record --source codex --reason "used during implementation" --text "git clone https://github.com/owner/repo.git"
 ```
 
 Show saved mode:
 
 ```bash
 python3 <path-to>/scripts/oss_thanks.py status
-```
-
-Record observed repositories:
-
-```bash
-python3 <path-to>/scripts/oss_thanks.py record --source codex --reason "referenced during implementation" --text "https://github.com/owner/repo"
 ```
 
 Review pending repositories:
@@ -61,13 +83,18 @@ Star pending repositories after user approval:
 python3 <path-to>/scripts/oss_thanks.py review --star --yes
 ```
 
+Ignore a repository:
+
+```bash
+python3 <path-to>/scripts/oss_thanks.py ignore owner/repo
+```
+
 ## Guardrails
 
-- The project is about auto-starring GitHub repositories used by AI tools; keep that as the primary path.
-- Do not silently choose between modes in conversation. Ask once, save the answer, and reuse it.
+- Keep the project focused on GitHub stars for repos actually used by AI coding tools.
+- Do not add thanks text, issue posting, reports, governance flows, or broad contribution-platform behavior.
 - Do not enable `auto-star` unless the user chose it for their own GitHub account.
-- Do not star private, internal, or ambiguous repositories unless the user explicitly confirms.
-- If GitHub authentication is unavailable, keep repositories pending and report the auth issue.
+- If GitHub authentication is unavailable, keep repositories pending and report that the user needs `gh auth login` or `GH_TOKEN` / `GITHUB_TOKEN`.
 - Use `--dry-run` when demonstrating the workflow or validating hooks.
 
 ## Hook Usage
@@ -77,5 +104,3 @@ When a Codex hook payload is available, pipe it to:
 ```bash
 python3 <path-to>/scripts/oss_thanks.py hook
 ```
-
-Use `examples/codex-hooks.json` as a starting point for project-level Codex hooks.

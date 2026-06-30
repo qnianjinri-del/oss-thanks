@@ -1,7 +1,7 @@
 {
   "name": "oss-thanks",
   "version": "0.1.0",
-  "description": "Auto-star GitHub repositories used by AI coding agents, or queue them for review based on the user's saved preference.",
+  "description": "Auto-star GitHub repositories actually used by AI coding agents, or queue them for review based on the user's saved preference.",
   "author": {
     "name": "OSS Thanks Contributors",
     "url": "https://github.com/qnianjinri-del"
@@ -14,12 +14,12 @@
     "stars",
     "codex",
     "skills",
-    "attribution"
+    "auto-star"
   ],
   "interface": {
     "displayName": "OSS Thanks",
-    "shortDescription": "Auto-star OSS projects used by agents",
-    "longDescription": "Record GitHub repositories referenced, cloned, or downloaded by AI coding agents. On first use, ask the user whether to auto-star immediately or review at the end, then remember that choice for future runs.",
+    "shortDescription": "Star GitHub repos actually used by agents",
+    "longDescription": "Record GitHub repositories that AI coding agents actually clone, install, download, or explicitly open and reference. On first use, ask whether to auto-star immediately or review at the end, then remember that choice.",
     "developerName": "OSS Thanks Contributors",
     "category": "Developer Tools",
     "capabilities": [
@@ -27,9 +27,9 @@
       "Write"
     ],
     "defaultPrompt": [
-      "Ask how OSS Thanks should run, then remember my choice",
-      "Auto-star GitHub projects used in this task",
-      "Show the OSS Thanks review queue"
+      "Ask how OSS Thanks should run and remember my choice",
+      "Record GitHub repos actually used in this task",
+      "Show the OSS Thanks review queue before finishing"
     ],
     "brandColor": "#2563EB"
   }

@@ -2,60 +2,73 @@
 
 ![OSS Thanks hero](assets/oss-thanks-hero.png)
 
-AI 编程工具越来越常去 GitHub 找项目、看代码、下载开源 skill。OSS Thanks 做一件很小的事：
+OSS Thanks 是给 Codex、Claude Code 这类 AI coding 工具用的小插件。
 
-**当 AI 参考或下载了一个 GitHub 开源项目，就按你的选择给它点一个 star。**
+项目运行时，AI 编程工具实际用到了哪个 GitHub 仓库，OSS Thanks 就会把它记录下来，并按你的设置处理：自动点 star，或者结束前先问你。
 
-它不写感谢信，不打扰作者，也不生成一堆致谢文案。就是把“AI 用过开源项目”这件事，变成一个简单、可见的 star。
+它的重点很简单：AI coding 过程中真实用到的开源 repo，按你的选择补上 star。
 
-## 两种方式
+## 它适合什么场景
 
-第一次使用时，OSS Thanks 会直接问你想怎么运行，并记住选择。
+AI coding 经常会临时 clone 一个项目、安装一个 GitHub 上的 skill / plugin / template，或者打开某个仓库参考实现。人不一定会注意到这些细节，OSS Thanks 就在这个过程中帮你记一下。
 
-| 方式 | 适合谁 | 会发生什么 |
-| --- | --- | --- |
-| 自动点 star | 想尽量省心的人 | AI 看到 GitHub 项目后，自动帮你点 star |
-| 结束前确认 | 想自己看一眼的人 | 先记录下来，任务结束时让你决定哪些要 star |
-
-之后不用每次再说一遍。想改时，再运行一次设置就行。
+一句话：用到才记录，用到才点星。
 
 ![OSS Thanks flow](assets/oss-thanks-flow.png)
 
-## 怎么用
+## 两种模式
 
-### 1. 添加到 Codex
-
-```bash
-codex plugin marketplace add qnianjinri-del/oss-thanks
-```
-
-然后在 Codex 的插件列表里安装 **OSS Thanks**，新开一个 thread。
-
-### 2. 第一次它会直接问你
-
-安装后，第一次有任务需要用到 OSS Thanks 时，Codex 会直接问：
+第一次使用时，OSS Thanks 会主动问：
 
 ```text
 OSS Thanks 要怎么运行？
-1) 自动点 star
-2) 先问我
+
+1. 自动点 star
+2. 先问我
 ```
 
-选过一次后，会保存在当前项目的 `.oss-thanks/config.json`。
+选过一次后会保存下来，后续不会每次重复问。
 
-如果你想手动改选择，也可以运行：
+| 模式 | 会发生什么 |
+| --- | --- |
+| 自动点 star | 检测到项目运行中实际用过的 GitHub repo 后，直接用你的 GitHub 账号点 star |
+| 先问我 | 先记录 repo，任务结束前展示列表，让你确认哪些要点 star |
+
+之后想改选择，可以重新运行：
 
 ```bash
 python3 scripts/oss_thanks.py setup
 ```
 
-### 3. 让 AI 正常工作
+## 安装
 
-之后你照常让 Codex 或 Claude Code 写代码、找参考项目、下载 skill。OSS Thanks 会从命令、链接和 hook 事件里识别 GitHub 仓库。
+### Codex
 
-如果你选的是自动点 star，它会直接尝试点星。
+把插件加入 Codex marketplace：
 
-如果你选的是结束前确认，可以查看当前列表：
+```bash
+codex plugin marketplace add qnianjinri-del/oss-thanks
+```
+
+然后在 Codex 插件列表里安装 **OSS Thanks**，新开一个 thread 就可以使用。
+
+安装后不需要你记命令。Codex 遇到 GitHub repo 的实际使用行为时，会自然记录；如果你选择的是“先问我”，任务结束前会显示待确认列表。
+
+### Claude Code 或其他 AI coding 工具
+
+核心能力是一个普通脚本，其他工具也可以接入：
+
+```bash
+python3 scripts/oss_thanks.py record --text "git clone https://github.com/pallets/flask.git"
+```
+
+查看当前状态：
+
+```bash
+python3 scripts/oss_thanks.py status
+```
+
+查看待确认列表：
 
 ```bash
 python3 scripts/oss_thanks.py review
@@ -69,50 +82,71 @@ python3 scripts/oss_thanks.py review --star --yes
 
 ## GitHub 登录
 
-自动点 star 需要能代表你的 GitHub 账号发起 star 操作。最简单的方式是安装并登录 GitHub CLI：
+点 star 需要能代表你的 GitHub 账号操作。推荐使用 GitHub CLI：
 
 ```bash
 gh auth login
 ```
 
-如果没有 `gh`，也可以设置 `GH_TOKEN` 或 `GITHUB_TOKEN`。
-
-## 它会识别什么
-
-这些都会被记录：
-
-```text
-https://github.com/openai/skills
-git clone https://github.com/pallets/flask.git
-git@github.com:psf/requests.git
-gh repo clone pytest-dev/pytest
-```
-
-重复出现的项目只会保留一份记录。已经 star、忽略过的项目不会反复处理。
-
-## 给 Claude Code 或其它工具用
-
-核心功能是一个普通命令行脚本：
+OSS Thanks 会优先运行：
 
 ```bash
-python3 scripts/oss_thanks.py record --text "git clone https://github.com/openai/skills.git"
+gh repo star owner/repo
 ```
 
-所以不只 Codex 能用。任何 AI 编程工具只要能在任务过程中调用这个脚本，都可以接入。
+如果没有 `gh`，也可以设置 `GH_TOKEN` 或 `GITHUB_TOKEN`，脚本会用 GitHub API 点 star。失败时会提示你登录 `gh` 或设置 token。
+
+## 什么算实际用到
+
+OSS Thanks 只把这些情况记录为“实际用到”：
+
+- `git clone` 了 GitHub repo
+- `gh repo clone owner/repo`
+- GitHub HTTPS / SSH repo 链接被用于 clone、下载或安装
+- 安装 GitHub 上的 skill / plugin / template
+- AI 明确打开并参考了某个 GitHub repo
+
+比如这些会被记录：
+
+```text
+git clone https://github.com/pallets/flask.git
+gh repo clone pytest-dev/pytest
+installed skill from git@github.com:openai/skills.git
+Opened https://github.com/openai/skills and referenced its README.
+```
+
+这些不会因为“出现了 GitHub 链接”就自动点星：
+
+- 搜索结果里出现的 GitHub 链接
+- 网页、文章、聊天内容里随手提到的 repo
+- GitHub 站内页面，比如 features、topics、pricing
+
+规则很简单：用到才记录，用到才点星。
+
+## 核心命令
+
+```bash
+python3 scripts/oss_thanks.py setup
+python3 scripts/oss_thanks.py status
+python3 scripts/oss_thanks.py record --text "git clone https://github.com/owner/repo.git"
+python3 scripts/oss_thanks.py review
+python3 scripts/oss_thanks.py star owner/repo --yes
+python3 scripts/oss_thanks.py ignore owner/repo
+```
 
 ## 抖音介绍图
 
-项目里放了一张竖版介绍图，可以直接拿去发短视频封面或动态：
+项目里有一张竖版介绍图，可以用于发图文或短视频封面：
 
 ![OSS Thanks Douyin poster](assets/douyin-oss-thanks.png)
 
-## 文件位置
+## 项目结构
 
 - `plugins/oss-thanks`：Codex 插件包
 - `.agents/plugins/marketplace.json`：Codex marketplace 入口
 - `scripts/oss_thanks.py`：核心脚本
-- `assets/`：README 图片和介绍图
+- `assets/`：README 图片和竖版介绍图
 
-## 说明
+## License
 
-GitHub star 是用户账号的公开行为。OSS Thanks 会在第一次使用时让你选择运行方式，并把选择保存下来。自动点 star 适合明确愿意这样做的用户；如果你希望每次都看一眼，可以选择结束前确认。
+MIT

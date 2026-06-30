@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Print the pending thanks queue when a turn stops.
+# Print the pending OSS Thanks review queue when a turn stops.
 
 set -euo pipefail
 

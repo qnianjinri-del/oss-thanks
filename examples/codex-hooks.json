@@ -7,7 +7,7 @@
           {
             "type": "command",
             "command": "/bin/bash \"$(git rev-parse --show-toplevel)/hooks/codex-post-tool-use.sh\"",
-            "statusMessage": "Recording open-source references"
+            "statusMessage": "Recording actual GitHub repo use"
           }
         ]
       }
@@ -18,7 +18,7 @@
           {
             "type": "command",
             "command": "python3 \"$(git rev-parse --show-toplevel)/scripts/oss_thanks.py\" review",
-            "statusMessage": "Preparing open-source thanks queue"
+            "statusMessage": "Showing OSS Thanks review queue"
           }
         ]
       }
